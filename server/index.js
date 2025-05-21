@@ -7,6 +7,7 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Configuración de la base de datos
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
@@ -14,22 +15,35 @@ const pool = new Pool({
     }
 });
 
-// 
-app.use(cors());
+// Middleware
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE']
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Middleware para loggear solicitudes
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+});
+
 // Rutas API
+// Obtener todos los alumnos
 app.get('/api/alumnos', async (req, res) => {
     try {
+        console.log('Intentando obtener alumnos...');
         const result = await pool.query('SELECT * FROM alumnos ORDER BY id');
+        console.log(`Encontrados ${result.rows.length} alumnos`);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
+        console.error('Error en GET /api/alumnos:', err);
         res.status(500).json({ error: 'Error al obtener alumnos' });
     }
 });
 
+// Obtener un alumno por ID
 app.get('/api/alumnos/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -44,6 +58,7 @@ app.get('/api/alumnos/:id', async (req, res) => {
     }
 });
 
+// Crear un nuevo alumno
 app.post('/api/alumnos', async (req, res) => {
     const { nombre, apellido, edad, email, carrera } = req.body;
     try {
@@ -58,6 +73,7 @@ app.post('/api/alumnos', async (req, res) => {
     }
 });
 
+// Actualizar un alumno
 app.put('/api/alumnos/:id', async (req, res) => {
     const { id } = req.params;
     const { nombre, apellido, edad, email, carrera } = req.body;
@@ -76,6 +92,7 @@ app.put('/api/alumnos/:id', async (req, res) => {
     }
 });
 
+// Eliminar un alumno
 app.delete('/api/alumnos/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -90,14 +107,27 @@ app.delete('/api/alumnos/:id', async (req, res) => {
     }
 });
 
+// Ruta para probar la conexión a la base de datos
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT NOW()');
+        res.json({ success: true, time: result.rows[0].now });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Ruta para el frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// Iniciar servidor
 app.listen(port, () => {
     console.log(`Servidor corriendo en http://localhost:${port}`);
 });
 
+// Crear tabla si no existe
 async function initializeDatabase() {
     try {
         await pool.query(`
@@ -111,7 +141,7 @@ async function initializeDatabase() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('Tabla "alumnos" creada o verificada');
+        console.log('Tabla "alumnos" verificada');
     } catch (err) {
         console.error('Error al inicializar la base de datos:', err);
     }

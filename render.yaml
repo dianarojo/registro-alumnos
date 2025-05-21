@@ -18,5 +18,3 @@ databases:
     databaseName: registro_alumnos
     user: registro_user
     plan: free
-
-    

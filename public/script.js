@@ -27,66 +27,94 @@ document.addEventListener('DOMContentLoaded', () => {
             if (editingId) {
                 // Actualizar alumno existente
                 await updateAlumno(editingId, alumno);
+                showAlert('Alumno actualizado correctamente', 'success');
             } else {
                 // Crear nuevo alumno
                 await createAlumno(alumno);
+                showAlert('Alumno creado correctamente', 'success');
             }
             
             resetForm();
             fetchAlumnos();
         } catch (error) {
             console.error('Error:', error);
-            alert('Ocurrió un error al guardar el alumno');
+            showAlert(`Error al guardar: ${error.message}`, 'error');
         }
     });
     
-    // Cancelar 
+    // Manejar cancelar edición
     cancelBtn.addEventListener('click', () => {
         resetForm();
     });
     
-    // Cargar alumnos
+    // Función para mostrar alertas
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert ${type}`;
+        alertDiv.textContent = message;
+        
+        document.body.prepend(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+    
+    // Función para cargar alumnos
     async function fetchAlumnos() {
         try {
             const response = await fetch('/api/alumnos');
-            const alumnos = await response.json();
             
-            alumnosBody.innerHTML = '';
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            const alumnos = await response.json();
             
             if (alumnos.length === 0) {
                 alumnosBody.innerHTML = '<tr><td colspan="7">No hay alumnos registrados</td></tr>';
                 return;
             }
             
-            alumnos.forEach(alumno => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${alumno.id}</td>
-                    <td>${alumno.nombre}</td>
-                    <td>${alumno.apellido}</td>
-                    <td>${alumno.edad}</td>
-                    <td>${alumno.email}</td>
-                    <td>${alumno.carrera}</td>
-                    <td>
-                        <button class="action-btn edit-btn" data-id="${alumno.id}">Editar</button>
-                        <button class="action-btn delete-btn" data-id="${alumno.id}">Eliminar</button>
-                    </td>
-                `;
-                alumnosBody.appendChild(row);
-            });
-            
-            // Agregar event listeners a los botones de editar y eliminar
-            document.querySelectorAll('.edit-btn').forEach(btn => {
-                btn.addEventListener('click', () => editAlumno(btn.dataset.id));
-            });
-            
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', () => deleteAlumno(btn.dataset.id));
-            });
+            renderAlumnosTable(alumnos);
         } catch (error) {
             console.error('Error al cargar alumnos:', error);
-            alumnosBody.innerHTML = '<tr><td colspan="7">Error al cargar los alumnos</td></tr>';
+            alumnosBody.innerHTML = `
+                <tr>
+                    <td colspan="7">
+                        Error al cargar los alumnos: ${error.message}
+                        <button onclick="location.reload()">Reintentar</button>
+                    </td>
+                </tr>
+            `;
         }
+    }
+    
+    // Función auxiliar para renderizar la tabla
+    function renderAlumnosTable(alumnos) {
+        alumnosBody.innerHTML = alumnos.map(alumno => `
+            <tr>
+                <td>${alumno.id}</td>
+                <td>${alumno.nombre}</td>
+                <td>${alumno.apellido}</td>
+                <td>${alumno.edad}</td>
+                <td>${alumno.email}</td>
+                <td>${alumno.carrera}</td>
+                <td>
+                    <button class="action-btn edit-btn" data-id="${alumno.id}">Editar</button>
+                    <button class="action-btn delete-btn" data-id="${alumno.id}">Eliminar</button>
+                </td>
+            </tr>
+        `).join('');
+        
+        // Agregar event listeners a los botones
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => editAlumno(btn.dataset.id));
+        });
+        
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => deleteAlumno(btn.dataset.id));
+        });
     }
     
     // Función para crear un nuevo alumno
@@ -100,7 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         if (!response.ok) {
-            throw new Error('Error al crear alumno');
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al crear alumno');
         }
     }
     
@@ -115,7 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         if (!response.ok) {
-            throw new Error('Error al actualizar alumno');
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error al actualizar alumno');
         }
     }
     
@@ -131,13 +161,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             if (!response.ok) {
-                throw new Error('Error al eliminar alumno');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al eliminar alumno');
             }
             
+            showAlert('Alumno eliminado correctamente', 'success');
             fetchAlumnos();
         } catch (error) {
             console.error('Error:', error);
-            alert('Ocurrió un error al eliminar el alumno');
+            showAlert(`Error al eliminar: ${error.message}`, 'error');
         }
     }
     
@@ -145,6 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function editAlumno(id) {
         try {
             const response = await fetch(`/api/alumnos/${id}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
             const alumno = await response.json();
             
             editingId = alumno.id;
@@ -163,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
         } catch (error) {
             console.error('Error al cargar alumno para editar:', error);
-            alert('Ocurrió un error al cargar el alumno');
+            showAlert(`Error al cargar alumno: ${error.message}`, 'error');
         }
     }
     
